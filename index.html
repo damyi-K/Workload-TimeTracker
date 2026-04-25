@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>바쁘다 바빠</title>
+    <link href="https://webfontworld.github.io/kopub/KoPubDotum.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            /* 기본 테마 (블루) */
+            --theme-color: #5c7cfa;
+            --theme-light: #edf2ff;
+            --bg-color: #f4f6f8;
+            --box-bg: #ffffff;
+            --text-main: #343a40;
+            --text-muted: #868e96;
+            --border-color: #e9ecef;
+            
+            /* 차트 색상 */
+            --chart-text: var(--theme-color);
+            --chart-draw: #fab005;
+            --chart-learn: #adb5bd;
+        }
+
+        [data-theme="mint"] { --theme-color: #20c997; --theme-light: #e6fcf5; --chart-draw: #fd7e14; }
+        [data-theme="coral"] { --theme-color: #ff8787; --theme-light: #fff5f5; --chart-draw: #fcc419; }
+        [data-theme="lavender"] { --theme-color: #b197fc; --theme-light: #f3f0ff; --chart-draw: #ffb347; }
+        [data-theme="pink"] { --theme-color: #f06595; --theme-light: #fff0f6; --chart-draw: #fcc419; }
+        [data-theme="green"] { --theme-color: #51cf66; --theme-light: #ebfbee; --chart-draw: #fd7e14; }
+        [data-theme="yellow"] { --theme-color: #fcc419; --theme-light: #fff9db; --chart-draw: #ff8787; }
+        [data-theme="red"] { --theme-color: #fa5252; --theme-light: #ffe3e3; --chart-draw: #fcc419; }
+
+        body {
+            font-family: 'KoPubDotum', sans-serif;
+            background-color: var(--bg-color); color: var(--text-main);
+            margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        /* 가로 길이 조정 (좌측 비율 증가, 우측 비율 감소) */
+        .left-panel { flex: 1.35; padding: 25px; overflow-y: auto; border-right: 1px solid var(--border-color); }
+        .right-panel { flex: 0.65; padding: 25px; overflow-y: auto; background-color: var(--box-bg); display: flex; flex-direction: column; }
+
+        h2, summary { margin: 0; color: var(--theme-color); }
+        h2 { font-size: 1.3rem; margin-bottom: 5px; }
+        
+        details {
+            background-color: var(--box-bg); border-radius: 12px; padding: 18px; margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid var(--border-color);
+        }
+        summary { font-weight: bold; font-size: 1.1rem; cursor: pointer; outline: none; user-select: none; }
+        .section-content { margin-top: 15px; }
+
+        .input-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .input-group > div { flex: 1; min-width: 90px; }
+        label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: var(--text-muted); font-weight: bold; }
+
+        input, select, button, textarea {
+            width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px;
+            font-family: inherit; box-sizing: border-box; font-size: 0.9rem; transition: 0.2s; background-color: #fdfdfd;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--theme-color); background-color: #fff; box-shadow: 0 0 0 3px var(--theme-light); }
+
+        button { background-color: var(--theme-color); color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { opacity: 0.85; transform: translateY(-1px); }
+        .btn-outline { background-color: transparent; color: var(--theme-color); border: 1px solid var(--theme-color); }
+        
+        /* 삭제 버튼 테마 연동 */
+        .del-btn-sm { 
+            padding: 5px 8px; background: var(--theme-color); color: white; border-radius: 6px; 
+            cursor: pointer; border: none; font-size: 0.75rem; width: auto; flex-shrink: 0;
+        }
+
+        #goalList { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 15px; }
+        .goal-item {
+            display: flex; justify-content: space-between; align-items: flex-start; padding: 12px;
+            background: #fff; border-left: 4px solid var(--theme-color); border-radius: 8px; font-size: 0.85rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02); border-top: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);
+        }
+
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; font-size: 0.9rem; }
+        .cal-day-header { font-weight: bold; color: var(--text-muted); padding: 5px 0; }
+        .cal-day { padding: 10px 0; border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: 0.2s; background: #fff; }
+        .cal-day:hover { background-color: var(--theme-light); }
+        .cal-day.active { background-color: var(--theme-color); color: white; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .cal-day.has-record { border-color: var(--theme-color); font-weight: bold; color: var(--theme-color); }
+        .cal-day.active.has-record { color: white; }
+
+        .compact-record {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 12px; border-radius: 8px; font-size: 0.9rem;
+            background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+            border-left: 4px solid var(--theme-color); margin-bottom: 8px;
+            border-top: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);
+        }
+
+        .tracker-top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        .theme-selector {
+            display: flex; gap: 6px; align-items: center; font-size: 0.85rem; color: var(--text-muted);
+            background: #f8f9fa; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-color);
+        }
+        .theme-btn { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .theme-btn:hover, .theme-btn.active { border-color: var(--text-main); transform: scale(1.1); }
+
+        .tracker-controls {
+            margin-bottom: 15px; background: #f8f9fa; padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .tracker-controls-header { display: flex; justify-content: flex-end; align-items: center; min-height: 32px; }
+
+        #editModeBtn { width: auto; padding: 8px 20px; font-size: 0.85rem; border-radius: 20px; background-color: #868e96; transition: 0.3s; }
+        #editModeBtn.active-mode { background-color: #fa5252; box-shadow: 0 0 8px rgba(250, 82, 82, 0.4); }
+
+        /* 컬러 팔레트 좌측 정렬 */
+        .color-palette { display: none; align-items: center; gap: 8px; margin-right: auto; }
+        .color-palette.show { display: flex; }
+        .color-btn { width: 22px; height: 22px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .color-btn:hover { transform: scale(1.1); }
+        .color-btn.active { border-color: var(--text-main); box-shadow: 0 0 0 2px #fff inset; }
+
+        .tracker-list { flex: 1; overflow-y: auto; padding-right: 10px; }
+        .tracker-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--border-color); gap: 12px; }
+        .tracker-row:last-child { border-bottom: none; }
+        
+        .time-label { width: 40px; text-align: right; font-weight: bold; color: var(--text-muted); font-size: 0.85rem; flex-shrink: 0; }
+        
+        .blocks-container { display: flex; gap: 0; flex-shrink: 0; }
+        .track-block {
+            width: 24px; height: 24px; background-color: #f1f3f5; 
+            border: 1px solid #e2e6ea; border-right: none; transition: 0.15s;
+        }
+        .track-block:first-child { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+        .track-block:last-child { border-right: 1px solid #e2e6ea; border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+        
+        .track-block.editable { cursor: pointer; }
+        .track-block.editable:hover { filter: brightness(0.85); }
+
+        /* 우측 텍스트 입력창 가로 길이 최대로 확장 */
+        .tracker-desc {
+            flex: 1; min-width: 100px; border: 1px solid transparent; background: transparent; padding: 6px 10px; font-size: 0.9rem;
+            color: var(--text-main); border-radius: 6px; outline: none; transition: 0.2s;
+        }
+        .tracker-desc.editable:focus { border-color: var(--theme-color); background: #fff; box-shadow: 0 0 0 2px var(--theme-light); }
+        .tracker-desc:not(.editable) { color: var(--text-muted); cursor: default; }
+
+        .chart-container { position: relative; height: 220px; width: 100%; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="left-panel">
+    <details open>
+        <summary>작업량 계산기</summary>
+        <form id="recordForm" class="section-content">
+            <div class="input-group">
+                <div><label>분류</label><select id="recordType" onchange="updateRecordUnits()"><option value="text">글</option><option value="drawing">그림</option><option value="study">학습</option></select></div>
+                <div><label>단위</label><select id="recordUnit"></select></div>
+                <div><label>작업량</label><input type="number" id="recordAmount" placeholder="실제 작업량" required min="1"></div>
+                <div><label>소요 시간(분) <span style="font-weight:normal;">- 선택</span></label><input type="number" id="recordTime" placeholder="선택사항" min="1"></div>
+            </div>
+            <button type="submit">현재 날짜(<span id="recordDateText"></span>) 기록 저장</button>
+        </form>
+    </details>
+
+    <details open>
+        <summary>목표</summary>
+        <div class="section-content">
+            <form id="goalForm" class="input-group" style="align-items: flex-end;">
+                <div style="flex: 0.5;"><label>분류</label><select id="goalType" onchange="updateGoalUnits()"><option value="text">글</option><option value="drawing">그림</option><option value="study">학습</option></select></div>
+                <div style="flex: 0.5;"><label>단위</label><select id="goalUnit"></select></div>
+                <div style="flex: 0.5;"><label>목표량</label><input type="number" id="goalAmount" min="1" required></div>
+                <div style="flex: 1.5;"><label>상세 내용</label><input type="text" id="goalText" placeholder="예: 3화 콘티 완성" required></div>
+                <button type="submit" style="flex: 0.5; padding: 10px;">추가</button>
+            </form>
+            <div id="goalList"></div>
+        </div>
+    </details>
+
+    <details>
+        <summary>캘린더 및 기록 요약</summary>
+        <div class="section-content" style="display: flex; gap: 25px;">
+            <div style="flex: 1;">
+                <div class="calendar-header">
+                    <button class="btn-outline" onclick="changeMonth(-1)" style="padding: 6px 12px; width: auto; border-radius: 6px;">&lt;</button>
+                    <strong id="calMonthYear" style="font-size:1.1rem;"></strong>
+                    <button class="btn-outline" onclick="changeMonth(1)" style="padding: 6px 12px; width: auto; border-radius: 6px;">&gt;</button>
+                </div>
+                <div class="calendar-grid" id="calendarGrid"></div>
+            </div>
+            <div style="flex: 1.2; border-left: 1px solid var(--border-color); padding-left: 25px;">
+                <strong style="display:block; margin-bottom: 15px; font-size:1.05rem; color:var(--text-main);" id="selectedDateTitle">기록</strong>
+                <div id="compactRecords"></div>
+            </div>
+        </div>
+    </details>
+
+    <details>
+        <summary>작업량 통계</summary>
+        <div class="section-content">
+            <div style="text-align: right; margin-bottom: 15px;"><input type="month" id="statMonth" style="width: auto; display: inline-block;"></div>
+            <p style="font-weight: bold; color: var(--theme-color); font-size:0.9rem; margin-bottom:5px;">요일별 총 작업량</p>
+            <div class="chart-container" style="background:#fff; padding:10px; border-radius:10px; border:1px solid var(--border-color);"><canvas id="dowChart"></canvas></div>
+            <p style="font-weight: bold; color: var(--theme-color); margin-top: 25px; font-size:0.9rem; margin-bottom:5px;">일별 누적 작업 흐름</p>
+            <div class="chart-container" style="background:#fff; padding:10px; border-radius:10px; border:1px solid var(--border-color);"><canvas id="trendChart"></canvas></div>
+        </div>
+    </details>
+</div>
+
+<div class="right-panel">
+    <div class="tracker-top-bar">
+        <h2><span id="trackerDateText"></span></h2>
+        <div class="theme-selector">
+            <span style="font-weight:bold; margin-right:4px;">테마</span>
+            <div class="theme-btn active" style="background:#5c7cfa;" onclick="setTheme('blue', this)"></div>
+            <div class="theme-btn" style="background:#20c997;" onclick="setTheme('mint', this)"></div>
+            <div class="theme-btn" style="background:#ff8787;" onclick="setTheme('coral', this)"></div>
+            <div class="theme-btn" style="background:#b197fc;" onclick="setTheme('lavender', this)"></div>
+            <div class="theme-btn" style="background:#f06595;" onclick="setTheme('pink', this)"></div>
+            <div class="theme-btn" style="background:#51cf66;" onclick="setTheme('green', this)"></div>
+            <div class="theme-btn" style="background:#fcc419;" onclick="setTheme('yellow', this)"></div>
+            <div class="theme-btn" style="background:#fa5252;" onclick="setTheme('red', this)"></div>
+        </div>
+    </div>
+    
+    <div class="tracker-controls">
+        <div class="tracker-controls-header">
+            <div class="color-palette" id="colorPalette">
+                <span style="font-size: 0.85rem; font-weight: bold; margin-right: 5px; color: var(--text-main);">브러시:</span>
+                
+                <div style="position: relative; width: 22px; height: 22px; margin-right: 4px;">
+                    <input type="color" id="customColorPicker" value="#339af0" style="opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer; padding: 0; border: none; z-index: 2;">
+                    <div class="color-btn active" id="customColorDisplay" style="background-color: #339af0; width: 100%; height: 100%; box-sizing: border-box; position: absolute; top: 0; left: 0; pointer-events: none;" title="직접 선택"></div>
+                </div>
+
+                <div class="color-btn" style="background-color: #fcc419;" title="노란색" onclick="setBrushColor('#fcc419', this)"></div>
+                <div class="color-btn" style="background-color: #ff8787;" title="붉은색" onclick="setBrushColor('#ff8787', this)"></div>
+                <div class="color-btn" style="background-color: #51cf66;" title="초록색" onclick="setBrushColor('#51cf66', this)"></div>
+                <div class="color-btn" style="background-color: #b197fc;" title="보라색" onclick="setBrushColor('#b197fc', this)"></div>
+                <div class="color-btn" style="background-color: #ced4da;" title="회색" onclick="setBrushColor('#ced4da', this)"></div>
+            </div>
+            
+            <button id="editModeBtn" onclick="toggleEditMode()">수정</button>
+        </div>
+    </div>
+
+    <div class="tracker-list" id="trackerList">
+        </div>
+</div>
+
+<script>
+    const STORAGE_RECORDS = 'busy_records_v1';
+    const STORAGE_GOALS = 'busy_goals_v2'; 
+    const STORAGE_TRACKER = 'busy_tracker_v1';
+    const STORAGE_THEME = 'busy_theme_v1';
+
+    let records = JSON.parse(localStorage.getItem(STORAGE_RECORDS)) || [];
+    let goals = JSON.parse(localStorage.getItem(STORAGE_GOALS)) || [];
+    let trackerData = JSON.parse(localStorage.getItem(STORAGE_TRACKER)) || {};
+    let currentTrackerState = {}; 
+
+    let selectedDate = new Date();
+    let viewDate = new Date();
+    let isEditMode = false;
+    let currentBrushColor = '#339af0'; // 초기 브러시 색상
+
+    let dowChartInstance = null;
+    let trendChartInstance = null;
+
+    const unitMap = { 'text': ['자', '단어', '페이지'], 'drawing': ['컷', '장'], 'study': ['장', '단원'] };
+    const typeLabelMap = { 'text': '글', 'drawing': '그림', 'study': '학습' };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadTheme();
+        updateGoalUnits();
+        updateRecordUnits();
+        renderAll();
+        
+        document.getElementById('statMonth').addEventListener('change', (e) => renderCharts(e.target.value));
+
+        // 컬러 피커 이벤트 리스너
+        const colorPicker = document.getElementById('customColorPicker');
+        const colorDisplay = document.getElementById('customColorDisplay');
+        
+        colorPicker.addEventListener('input', function(e) {
+            colorDisplay.style.backgroundColor = e.target.value;
+            setBrushColor(e.target.value, colorDisplay);
+        });
+        colorPicker.addEventListener('click', function(e) {
+            setBrushColor(e.target.value, colorDisplay);
+        });
+    });
+
+    function setTheme(themeName, btn) {
+        document.documentElement.setAttribute('data-theme', themeName);
+        localStorage.setItem(STORAGE_THEME, themeName);
+        document.querySelectorAll('.theme-btn').forEach(el => el.classList.remove('active'));
+        if(btn) btn.classList.add('active');
+        renderGoals(); renderCompactRecords(formatDate(selectedDate)); renderCharts(document.getElementById('statMonth').value);
+    }
+
+    function loadTheme() {
+        const savedTheme = localStorage.getItem(STORAGE_THEME) || 'blue';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        const btns = document.querySelectorAll('.theme-btn');
+        btns.forEach(btn => btn.classList.remove('active'));
+        const themeMap = { 'blue': 0, 'mint': 1, 'coral': 2, 'lavender': 3, 'pink': 4, 'green': 5, 'yellow': 6, 'red': 7 };
+        if(themeMap[savedTheme] !== undefined) btns[themeMap[savedTheme]].classList.add('active');
+        else btns[0].classList.add('active');
+    }
+
+    function formatDate(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function setBrushColor(color, btn) {
+        currentBrushColor = color;
+        document.querySelectorAll('.color-btn').forEach(el => el.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    function updateGoalUnits() { document.getElementById('goalUnit').innerHTML = unitMap[document.getElementById('goalType').value].map(u => `<option value="${u}">${u}</option>`).join(''); }
+    function updateRecordUnits() { document.getElementById('recordUnit').innerHTML = unitMap[document.getElementById('recordType').value].map(u => `<option value="${u}">${u}</option>`).join(''); }
+
+    function renderAll() {
+        const dateStr = formatDate(selectedDate);
+        document.getElementById('recordDateText').textContent = dateStr;
+        document.getElementById('trackerDateText').textContent = dateStr;
+        document.getElementById('statMonth').value = dateStr.slice(0, 7);
+        renderGoals(); renderCalendar(); renderCompactRecords(dateStr); renderTracker(dateStr); renderCharts(dateStr.slice(0, 7));
+    }
+
+    document.getElementById('goalForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        goals.push({ id: Date.now(), type: document.getElementById('goalType').value, unit: document.getElementById('goalUnit').value, amount: parseInt(document.getElementById('goalAmount').value), text: document.getElementById('goalText').value });
+        localStorage.setItem(STORAGE_GOALS, JSON.stringify(goals));
+        document.getElementById('goalAmount').value = ''; document.getElementById('goalText').value = ''; renderGoals();
+    });
+
+    function renderGoals() {
+        const list = document.getElementById('goalList');
+        if (goals.length === 0) { list.style.display = 'block'; list.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem; text-align:center; padding: 10px;">설정된 목표가 없습니다.</p>'; return; }
+        list.style.display = 'grid';
+        const todayRecords = records.filter(r => r.date === formatDate(selectedDate));
+        list.innerHTML = goals.map(g => {
+            let achieved = 0;
+            todayRecords.forEach(r => { if (r.type === g.type && r.unit === g.unit) achieved += r.amount; });
+            let percent = Math.min(100, Math.round((achieved / g.amount) * 100));
+            return `<div class="goal-item">
+                <div style="flex: 1; padding-right: 10px; min-width: 0;">
+                    <div style="margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><strong>[${typeLabelMap[g.type]}]</strong> <strong style="font-size: 0.95rem; margin: 0 4px;">${g.text}</strong> <span style="color:var(--theme-color); font-weight:bold;">(${g.amount}${g.unit})</span></div>
+                    <div style="width:100%; height:6px; background:#e9ecef; border-radius:3px; overflow:hidden;"><div style="width:${percent}%; height:100%; background:var(--theme-color); transition:0.3s;"></div></div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">오늘: ${achieved} / ${g.amount} (${percent}%)</div>
+                </div><button class="del-btn-sm" onclick="deleteGoal(${g.id})">삭제</button>
+            </div>`;
+        }).join('');
+    }
+
+    function deleteGoal(id) { goals = goals.filter(g => g.id !== id); localStorage.setItem(STORAGE_GOALS, JSON.stringify(goals)); renderGoals(); }
+
+    document.getElementById('recordForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        records.push({ id: Date.now(), date: formatDate(selectedDate), type: document.getElementById('recordType').value, unit: document.getElementById('recordUnit').value, amount: parseInt(document.getElementById('recordAmount').value), time: document.getElementById('recordTime').value ? parseInt(document.getElementById('recordTime').value) : null });
+        localStorage.setItem(STORAGE_RECORDS, JSON.stringify(records));
+        document.getElementById('recordAmount').value = ''; document.getElementById('recordTime').value = ''; renderAll(); 
+    });
+
+    function deleteRecord(id) { if(confirm('이 기록을 삭제하시겠습니까?')) { records = records.filter(r => r.id !== id); localStorage.setItem(STORAGE_RECORDS, JSON.stringify(records)); renderAll(); } }
+
+    function renderCompactRecords(dateStr) {
+        const container = document.getElementById('compactRecords');
+        document.getElementById('selectedDateTitle').textContent = `${dateStr} 기록`;
+        const dayRecords = records.filter(r => r.date === dateStr);
+        if (dayRecords.length === 0) { container.innerHTML = '<div style="text-align:center; padding: 15px; color:var(--text-muted); background:#f8f9fa; border-radius:8px; font-size:0.9rem;">작업 기록이 없습니다.</div>'; return; }
+        container.innerHTML = dayRecords.map(r => `<div class="compact-record"><div><strong style="margin-right:8px;">${typeLabelMap[r.type]}</strong> <span style="color:var(--theme-color); font-weight:bold; font-size:1.05rem;">${r.amount}${r.unit}</span> ${r.time ? `<span style="color:#868e96; font-size:0.8rem; margin-left:5px;">(${r.time}분)</span>` : ''}</div><button class="del-btn-sm" onclick="deleteRecord(${r.id})">삭제</button></div>`).join('');
+    }
+
+    function changeMonth(delta) { viewDate.setMonth(viewDate.getMonth() + delta); renderCalendar(); }
+    function renderCalendar() {
+        const y = viewDate.getFullYear(); const m = viewDate.getMonth();
+        document.getElementById('calMonthYear').textContent = `${y}년 ${m + 1}월`;
+        const grid = document.getElementById('calendarGrid'); grid.innerHTML = '';
+        ['일', '월', '화', '수', '목', '금', '토'].forEach(d => { grid.innerHTML += `<div class="cal-day-header">${d}</div>`; });
+        const firstDay = new Date(y, m, 1).getDay(); const lastDate = new Date(y, m + 1, 0).getDate();
+        for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
+        for (let i = 1; i <= lastDate; i++) {
+            const cellDateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            const el = document.createElement('div'); el.className = 'cal-day'; el.textContent = i;
+            if (records.some(r => r.date === cellDateStr)) el.classList.add('has-record');
+            if (cellDateStr === formatDate(selectedDate)) el.classList.add('active');
+            el.onclick = () => { selectedDate = new Date(y, m, i); renderAll(); };
+            grid.appendChild(el);
+        }
+    }
+
+    function toggleEditMode() {
+        isEditMode = !isEditMode;
+        const btn = document.getElementById('editModeBtn');
+        const palette = document.getElementById('colorPalette');
+        if(isEditMode) {
+            btn.textContent = '완료';
+            btn.classList.add('active-mode');
+            palette.classList.add('show');
+        } else {
+            btn.textContent = '수정';
+            btn.classList.remove('active-mode');
+            palette.classList.remove('show');
+        }
+        renderTracker(formatDate(selectedDate));
+    }
+
+    function saveTrackerAuto() { trackerData[formatDate(selectedDate)] = currentTrackerState; localStorage.setItem(STORAGE_TRACKER, JSON.stringify(trackerData)); }
+
+    function renderTracker(dateStr) {
+        const list = document.getElementById('trackerList'); list.innerHTML = '';
+        currentTrackerState = JSON.parse(JSON.stringify(trackerData[dateStr] || {}));
+
+        for (let i = 6; i < 30; i++) { 
+            const hourStr = String(i % 24).padStart(2, '0');
+            const rowData = currentTrackerState[hourStr] || { blocks: [null,null,null,null,null,null], text: "" };
+            
+            // 기존 테마 의존 데이터 하위 호환 처리
+            for(let b=0; b<6; b++) {
+                if(rowData.blocks[b] === true || rowData.blocks[b] === 'theme') rowData.blocks[b] = '#5c7cfa';
+                if(rowData.blocks[b] === false) rowData.blocks[b] = null;
+            }
+            currentTrackerState[hourStr] = rowData;
+            
+            const row = document.createElement('div'); row.className = 'tracker-row';
+            const label = document.createElement('div'); label.className = 'time-label'; label.textContent = `${hourStr}시`;
+            const blocksContainer = document.createElement('div'); blocksContainer.className = 'blocks-container';
+            
+            for(let b=0; b<6; b++) {
+                const block = document.createElement('div'); block.className = 'track-block';
+                const bColor = rowData.blocks[b];
+                
+                if(bColor) {
+                    block.style.backgroundColor = bColor;
+                    block.style.borderColor = bColor;
+                    if(isEditMode) block.style.borderRight = '1px solid rgba(255,255,255,0.3)';
+                }
+                
+                if(isEditMode) block.classList.add('editable');
+                
+                block.onclick = () => {
+                    if(!isEditMode) return;
+                    rowData.blocks[b] = (rowData.blocks[b] === currentBrushColor) ? null : currentBrushColor;
+                    saveTrackerAuto(); renderTracker(formatDate(selectedDate));
+                };
+                blocksContainer.appendChild(block);
+            }
+
+            const input = document.createElement('input');
+            input.type = 'text'; input.className = 'tracker-desc';
+            if(isEditMode) input.classList.add('editable');
+            input.placeholder = isEditMode ? "내용 입력..." : "";
+            input.value = rowData.text; input.readOnly = !isEditMode;
+            input.oninput = (e) => { rowData.text = e.target.value; saveTrackerAuto(); };
+
+            row.appendChild(label); row.appendChild(blocksContainer); row.appendChild(input); list.appendChild(row);
+        }
+    }
+
+    function renderCharts(monthStr) {
+        const monthRecords = records.filter(r => r.date.startsWith(monthStr));
+        const rootStyles = getComputedStyle(document.documentElement);
+        const colorText = rootStyles.getPropertyValue('--chart-text').trim() || '#5c7cfa';
+        const colorDraw = rootStyles.getPropertyValue('--chart-draw').trim() || '#fab005';
+        const colorLearn = rootStyles.getPropertyValue('--chart-learn').trim() || '#adb5bd';
+        
+        const dowData = { text: Array(7).fill(0), drawing: Array(7).fill(0), study: Array(7).fill(0) };
+        const daysInMonth = new Date(monthStr.split('-')[0], monthStr.split('-')[1], 0).getDate();
+        const trendData = { text: Array(daysInMonth).fill(0), drawing: Array(daysInMonth).fill(0), study: Array(daysInMonth).fill(0) };
+
+        monthRecords.forEach(r => {
+            const dayOfWeek = new Date(r.date).getDay(); const dayOfMonth = new Date(r.date).getDate() - 1;
+            if(r.type === 'text') { dowData.text[dayOfWeek] += r.amount; trendData.text[dayOfMonth] += r.amount; }
+            else if(r.type === 'drawing') { dowData.drawing[dayOfWeek] += r.amount; trendData.drawing[dayOfMonth] += r.amount; }
+            else if(r.type === 'study') { dowData.study[dayOfWeek] += r.amount; trendData.study[dayOfMonth] += r.amount; }
+        });
+
+        const scaleOptions = {
+            y: { type: 'linear', display: true, position: 'left', title: { display: true, text: '글 (작업량)', font: {size: 11} } },
+            y1: { type: 'linear', display: true, position: 'right', min: 0, max: 50, grid: { drawOnChartArea: false }, title: { display: true, text: '그림/학습 (작업량)', font: {size: 11} } }
+        };
+        const getDatasets = (type) => [
+            { label: '글', data: type === 'dow' ? dowData.text : trendData.text, backgroundColor: colorText, borderColor: colorText, fill: false, yAxisID: 'y', tension: 0.2 },
+            { label: '그림', data: type === 'dow' ? dowData.drawing : trendData.drawing, backgroundColor: colorDraw, borderColor: colorDraw, fill: false, yAxisID: 'y1', tension: 0.2 },
+            { label: '학습', data: type === 'dow' ? dowData.study : trendData.study, backgroundColor: colorLearn, borderColor: colorLearn, fill: false, yAxisID: 'y1', tension: 0.2 }
+        ];
+
+        if (dowChartInstance) dowChartInstance.destroy();
+        dowChartInstance = new Chart(document.getElementById('dowChart').getContext('2d'), { type: 'bar', data: { labels: ['일', '월', '화', '수', '목', '금', '토'], datasets: getDatasets('dow') }, options: { responsive: true, maintainAspectRatio: false, scales: scaleOptions, plugins: { legend: { position: 'top' } } } });
+        if (trendChartInstance) trendChartInstance.destroy();
+        trendChartInstance = new Chart(document.getElementById('trendChart').getContext('2d'), { type: 'line', data: { labels: Array.from({length: daysInMonth}, (_, i) => `${i+1}일`), datasets: getDatasets('trend') }, options: { responsive: true, maintainAspectRatio: false, scales: scaleOptions, plugins: { legend: { position: 'top' } } } });
+    }
+</script>
+</body>
+</html>
